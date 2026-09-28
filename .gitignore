@@ -1,18 +1,25 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
+# Node / frontend
+node_modules/
+web/dist/
+*.local
 
-# Other files and folders
-.settings/
+# Go binaries
+server/model-ops.exe
+server/model-ops
+*.exe~
 
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
+# Runtime data (generated store, never commit)
+server/data/
 
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+# Tooling / secrets
+.mimosa/
+.env
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Confidential source sheets — never commit
+*.xlsx
+.xlsx_dump.txt
