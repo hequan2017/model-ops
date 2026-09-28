@@ -1,6 +1,10 @@
 @echo off
 chcp 65001 >nul
 cd /d %~dp0
-where python >nul 2>nul || (echo [错误] 未找到 python，请先安装 Python 3.8+ & pause & exit /b 1)
-python app.py
+if not exist gpu-acceptance.exe (
+  where go >nul 2>nul || (echo [错误] 未找到 go，也未找到 gpu-acceptance.exe & pause & exit /b 1)
+  echo 首次运行，正在构建 gpu-acceptance.exe ...
+  go build -o gpu-acceptance.exe . || (pause & exit /b 1)
+)
+gpu-acceptance.exe
 pause
