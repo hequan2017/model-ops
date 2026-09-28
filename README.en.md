@@ -82,6 +82,8 @@ web/                    Vue 3 frontend
 ├── src/i18n.js         zh/en dictionaries and domain translations (statuses/categories/skills/items/requirements)
 └── src/views           Dashboard / Acceptance / Installers / Deployment /
                         StressHttp / StressBurnin / Spec
+
+gpu-acceptance/         GPU acceptance console (standalone sub-project, local web + SSH, see below)
 ```
 
 ## Acceptance Loop Example
@@ -121,6 +123,18 @@ GET/POST /api/stress/burnin  GET /api/stress/burnin/{id}/live
 ```bash
 cd server && go test ./...     # seed data, acceptance state machine, real load engine, burn-in verdicts
 ```
+
+## GPU Acceptance Console (local SSH edition)
+
+[`gpu-acceptance/`](gpu-acceptance/) is a **standalone single-machine companion tool**
+(Python 3.8+ stdlib, zero dependencies): it runs a web console on your machine (bound to
+127.0.0.1 only) and pushes acceptance scripts to the target GPU server over SSH — unboxing
+inventory, config cross-check, 72h burn-in (gpu-burn), performance measurement (P2P
+bandwidth, memory bandwidth, FP32–FP8 compute), concurrency load test, and software
+verification — with automatic threshold verdicts and one-click acceptance reports. Nothing
+is deployed on the server; no target address is built in (fill it in the UI or provide via
+environment variables). Burn-in/load-test items in the platform can cite the tool's measured
+results as acceptance evidence. See [gpu-acceptance/README.en.md](gpu-acceptance/README.en.md).
 
 ## License
 

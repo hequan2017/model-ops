@@ -72,6 +72,8 @@ web/                    Vue 3 前端
 ├── src/i18n.js         中英文词典与领域内容翻译（状态/类别/技能/条目/岗位要求）
 └── src/views           Dashboard / Acceptance / Installers / Deployment /
                         StressHttp / StressBurnin / Spec
+
+gpu-acceptance/         GPU 验收控制台（独立子项目，本地 Web + SSH 远程执行，见下节）
 ```
 
 ## 验收闭环示例
@@ -110,6 +112,15 @@ GET/POST /api/stress/burnin  GET /api/stress/burnin/{id}/live
 ```bash
 cd server && go test ./...     # 种子数据、验收状态机、真实压测引擎、烤机判定
 ```
+
+## GPU 验收控制台（本地 SSH 版）
+
+[`gpu-acceptance/`](gpu-acceptance/) 是与平台配套的**独立单机工具**（Python 3.8+ 标准库，零依赖）：
+在本机起一个 Web 控制台（仅监听 127.0.0.1），把开箱核对 / 配置核对 / 72h 烤机（gpu-burn）/
+性能实测（P2P 带宽、显存带宽、FP32–FP8 算力）/ 并发压测 / 软件验收脚本经 SSH 推送到目标 GPU
+服务器执行，自动按阈值判定并一键生成验收报告。服务器端零部署；目标服务器地址不内置，运行后在
+界面填写或用环境变量提供。平台侧烤机/压测条目可引用该工具的实测结果作为验收记录佐证。
+详见 [gpu-acceptance/README.md](gpu-acceptance/README.md)。
 
 ## License
 

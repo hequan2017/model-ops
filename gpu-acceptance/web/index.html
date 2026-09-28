@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPU 服务器验收控制台</title>
+<style>
+:root{
+  --bg:#0b1220;--card:#111a2c;--line:#1f2b40;--txt:#dbe4f0;--dim:#8fa3bf;
+  --acc:#2563eb;--acc2:#38bdf8;--ok:#4ade80;--bad:#f87171;--warn:#fdba74;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif}
+header{position:sticky;top:0;z-index:9;background:#0d1526e8;border-bottom:1px solid var(--line);
+  padding:10px 18px;backdrop-filter:blur(6px)}
+header h1{font-size:17px;margin:0 0 6px}
+header .sub{color:var(--dim);font-size:12px}
+main{max-width:1180px;margin:0 auto;padding:16px}
+h2{font-size:15px;color:var(--acc2);border-left:3px solid var(--acc2);padding-left:8px;margin:26px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+.card-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{background:#1e3a5f;color:#7cc4ff;font-size:11px;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.ttl b{display:block}
+.ttl small{color:var(--dim)}
+.ttl{flex:1;min-width:260px}
+button{background:var(--acc);border:0;color:#fff;border-radius:8px;padding:7px 14px;
+  cursor:pointer;font-size:13px;white-space:nowrap}
+button:hover{filter:brightness(1.12)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.ghost{background:#1c2a44;color:var(--txt)}
+.chip{padding:2px 11px;border-radius:999px;font-size:12px;white-space:nowrap}
+.chip.gray{background:#334155;color:#cbd5e1}
+.chip.ok{background:#14532d;color:var(--ok)}
+.chip.fail{background:#7f1d1d;color:var(--bad)}
+.chip.run{background:#78350f;color:var(--warn)}
+.chip.err{background:#571426;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+th,td{border-bottom:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{color:#7cc4ff;font-weight:600;white-space:nowrap}
+.pass{color:var(--ok);font-weight:700}.fail{color:var(--bad);font-weight:700}.none{color:var(--dim)}
+pre{background:#0a0f1a;border:1px solid var(--line);border-radius:8px;padding:10px;
+  max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#9fb4cc;font-size:12px}
+pre.out{color:#c8d6ea}
+details{margin-top:8px}
+summary{cursor:pointer;color:var(--dim);font-size:12px}
+input,select,textarea{background:#0d1626;border:1px solid #24344d;color:var(--txt);
+  border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit}
+textarea{width:100%;min-height:56px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim)}
+label.f input,label.f textarea{color:var(--txt)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:10px 0}
+.rowline{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}
+.chk{display:flex;align-items:center;gap:6px;color:var(--txt);font-size:13px}
+.chk input{width:auto}
+.muted{color:var(--dim);font-size:12px}
+#toast{position:fixed;right:18px;bottom:18px;background:#14532d;color:var(--ok);
+  padding:10px 16px;border-radius:10px;box-shadow:0 4px 18px #0009;opacity:0;transition:.3s;z-index:99}
+#toast.show{opacity:1}
+hr{border:0;border-top:1px dashed var(--line);margin:14px 0}
+footer{color:var(--dim);font-size:12px;text-align:center;margin:26px 0 12px}
+a{color:var(--acc2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>GPU 服务器验收控制台 <span class="muted">（本机运行 · SSH 远程执行 · 远端零部署）</span></h1>
+  <div class="rowline" style="margin:0">
+    <label class="f">主机<input id="c-host" style="width:150px" placeholder="服务器 IP / 主机名"></label>
+    <label class="f">用户<input id="c-user" style="width:90px" placeholder="root"></label>
+    <label class="f">端口<input id="c-port" style="width:64px" placeholder="22"></label>
+    <label class="f">私钥路径（本机）<input id="c-key" style="width:220px" placeholder="~/.ssh/id_ed25519"></label>
+    <label class="f">远端 Python（含 PyTorch 的解释器）<input id="c-py" style="width:230px" placeholder="/root/miniconda3/envs/xxx/bin/python"></label>
+    <label class="f">压测默认目标 URL<input id="c-url" style="width:260px"></label>
+    <button class="ghost" onclick="saveConn()">保存连接</button>
+    <button class="ghost" onclick="testConn()">测试连接</button>
+    <span id="connstate" class="chip gray">未测试</span>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="card-h">
+      <span class="badge">标准</span>
+      <div class="ttl"><b>验收标准（默认 L40 ×8 整机，可按合同/配置单修改，保存后自动重算判定）</b></div>
+    </div>
+    <details><summary>点击展开 / 收起</summary>
+      <div class="grid" id="spec-grid"></div>
+      <button onclick="saveSpec()">保存标准</button>
+    </details>
+  </section>
+
+  <div id="checks"></div>
+
+  <section class="card" id="card-manual">
+    <div class="card-h">
+      <span class="badge">⑥ 文档归档</span>
+      <div class="ttl"><b>人工确认项与归档</b><small>开箱外观、课程镜像/账号、序列号注册、质保凭证等需人工签字确认的事项</small></div>
+    </div>
+    <div class="grid">
+      <label class="chk"><input type="checkbox" id="m-appearance_ok">① 外观无运输损伤</label>
+      <label class="chk"><input type="checkbox" id="m-course_image_ok">⑤ 课程镜像已部署验证</label>
+      <label class="chk"><input type="checkbox" id="m-accounts_ok">⑤ 师生账号已开通验证</label>
+      <label class="chk"><input type="checkbox" id="m-sn_registered">⑥ GPU 序列号已注册</label>
+      <label class="chk"><input type="checkbox" id="m-warranty_archived">⑥ 质保凭证已归档</label>
+      <label class="f">合同编号<input id="m-contract_no"></label>
+      <label class="f">出厂测试报告编号<input id="m-factory_report_no"></label>
+      <label class="f">验收人<input id="m-acceptor"></label>
+    </div>
+    <label class="f">备注<textarea id="m-notes"></textarea></label>
+    <div class="rowline"><button onclick="saveManual()">保存人工确认</button></div>
+  </section>
+
+  <section class="card" id="card-report">
+    <div class="card-h">
+      <span class="badge">⑥ 报告</span>
+      <div class="ttl"><b>生成验收报告</b><small>汇总全部自动检查与人工确认，输出 Markdown 归档文件（data/ 目录）</small></div>
+      <button onclick="genReport()">生成验收报告</button>
+    </div>
+    <div id="report-area"></div>
+  </section>
+
+  <footer>所有脚本均由本机经 SSH 推送执行，服务器上不留存任何程序；烤机日志位于服务器 /root/acceptance/。</footer>
+</main>
+<div id="toast"></div>
+
+<script>
+let STATE=null;
+const RUNNING={};           // checkId -> taskId
+const OUT_MAX=16000;
+
+async function api(p,body){
+  const opt=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+                :{headers:{'Accept':'application/json'}};
+  const r=await fetch(p,opt);
+  return r.json();
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2600);}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ---------- 顶部：连接 ---------- */
+const $=id=>document.getElementById(id);
+function fillConn(){
+  const c=STATE.conn;
+  $('c-host').value=c.host;$('c-user').value=c.user;$('c-port').value=c.port;$('c-key').value=c.key||'';
+  $('c-py').value=c.remote_python||'python3';$('c-url').value=c.service_url||'';
+}
+async function saveConn(){
+  STATE.conn=Object.assign(STATE.conn,{host:$('c-host').value.trim(),user:$('c-user').value.trim(),
+    port:parseInt($('c-port').value)||22,key:$('c-key').value.trim(),remote_python:$('c-py').value.trim(),
+    service_url:$('c-url').value.trim()});
+  const r=await api('/api/conn',STATE.conn); r.ok?toast('连接已保存'):toast('保存失败: '+(r.error||''));
+}
+async function testConn(){
+  const cs=$('connstate');cs.className='chip run';cs.textContent='连接中…';
+  const r=await api('/api/test',{});
+  if(r.ok){cs.className='chip ok';cs.textContent='连接正常';}
+  else{cs.className='chip fail';cs.textContent='连接失败';}
+  cs.title=r.out||'';
+  toast(r.ok?'SSH 连接正常':'连接失败：'+(r.out||'').slice(0,160));
+}
+
+/* ---------- 验收标准 ---------- */
+const SPEC_LABELS={
+ gpu_count:'GPU 数量',gpu_model_contains:'GPU 型号（包含）',logical_cores:'CPU 逻辑核数',
+ mem_gb:'内存标称 GB',mem_tol_pct:'内存容差 %',data_disk_mount:'数据盘挂载点',
+ data_disk_min_gb:'数据盘最小 GB',burn_duration_min:'烤机时长(分钟)',gpu_temp_max:'温度上限 ℃',
+ p2p_min_gbps:'P2P 下限 GB/s',mem_bw_gbps:'显存带宽标称 GB/s',mem_bw_min_ratio:'带宽达标率',
+ fp32_tflops:'FP32 标称 TFLOPS',tf32_tflops:'TF32 标称 TFLOPS',fp16_tflops:'FP16 标称 TFLOPS',
+ fp8_tflops:'FP8 标称 TFLOPS',flops_min_ratio:'算力达标率',conc_users:'压测并发数',
+ conc_duration_s:'压测时长 s',p95_max_ms:'P95 上限 ms',err_max:'允许错误数'};
+function renderSpec(){
+  const g=document.getElementById('spec-grid');g.innerHTML='';
+  for(const[k,label]of Object.entries(SPEC_LABELS)){
+    const d=document.createElement('label');d.className='f';
+    d.innerHTML=label+`<input id="spec-${k}" value="${esc(STATE.spec[k])}">`;
+    g.appendChild(d);
+  }
+}
+async function saveSpec(){
+  const body={};
+  for(const k of Object.keys(SPEC_LABELS))body[k]=document.getElementById('spec-'+k).value;
+  const r=await api('/api/spec',body);
+  if(r.ok){STATE.spec=r.spec;toast('标准已保存，判定已重算');refreshState().then(renderAll);}
+  else toast('保存失败');
+}
+
+/* ---------- 检查卡片 ---------- */
+function chipFor(rec){
+  if(!rec)return ['gray','未运行'];
+  if(rec.status==='error')return ['err','执行出错'];
+  const js=(rec.judge||[]).filter(x=>x.pass!==null);
+  if(!js.length)return ['gray',rec.status==='done'?'已执行':'…'];
+  if(js.every(x=>x.pass===true))return ['ok','通过'];
+  if(js.some(x=>x.pass===false))return ['fail','未达标'];
+  return ['gray','未判定'];
+}
+function kvTable(m){
+  const keys=Object.keys(m).filter(k=>k!=='rows'&&!k.startsWith('_'));
+  if(!keys.length)return '';
+  let h='<table><tr><th>指标</th><th>值</th></tr>';
+  for(const k of keys)h+=`<tr><td>${esc(k)}</td><td>${esc(m[k])}</td></tr>`;
+  return h+'</table>';
+}
+function judgeTable(rows){
+  if(!rows||!rows.length)return '';
+  let h='<table><tr><th>判定项</th><th>实测</th><th>标准</th><th>结果</th></tr>';
+  for(const r of rows){
+    const m=r.pass===true?'<span class="pass">✓</span>':r.pass===false?'<span class="fail">✗</span>':'<span class="none">—</span>';
+    h+=`<tr><td>${esc(r.label)}</td><td>${esc(r.actual)}</td><td>${esc(r.expected)}</td><td>${m}</td></tr>`;
+  }
+  return h+'</table>';
+}
+function rowsTable(header,rows){
+  if(!rows||!rows.length)return '';
+  let h='<table><tr>'+header.map(x=>`<th>${esc(x)}</th>`).join('')+'</tr>';
+  for(const r of rows){
+    const cells=r.slice(1);
+    while(cells.length<header.length)cells.push('');
+    h+='<tr>'+cells.map(c=>`<td>${esc((c||'').trim())}</td>`).join('')+'</tr>';
+  }
+  return h+'</table>';
+}
+function concInputs(c){
+  const spec=STATE.spec,conn=STATE.conn;
+  return `<div class="grid">
+    <label class="f">目标 URL<input id="conc-url" value="${esc(conn.service_url||'')}"></label>
+    <label class="f">并发数<input id="conc-users" type="number" value="${spec.conc_users}"></label>
+    <label class="f">时长(秒)<input id="conc-duration" type="number" value="${spec.conc_duration_s}"></label>
+    <label class="f">POST JSON 体（留空为 GET）<textarea id="conc-body">{"prompt":"你好","max_tokens":16}</textarea></label>
+    <label class="chk" style="align-self:end"><input type="checkbox" id="conc-private">内网/本机目标（--allow-private）</label>
+  </div>`;
+}
+function cardHtml(c){
+  const rec=STATE.results[c.id];
+  const [cls,txt]=chipFor(rec);
+  let h=`<article class="card" id="card-${c.id}">
+    <div class="card-h">
+      <span class="badge">${esc(c.cat)}</span>
+      <div class="ttl"><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></div>
+      <span class="chip ${cls}" id="chip-${c.id}">${txt}</span>`;
+  if(c.auto)h+=`<label class="chk"><input type="checkbox" id="auto-burn" checked>30s 自动刷新</label>`;
+  h+=`<button id="btn-${c.id}" onclick="runCheck('${c.id}')">${esc(c.btn)}</button></div>`;
+  if(c.inputs)h+=concInputs(c);
+  h+=`<div id="body-${c.id}">`;
+  if(rec){
+    h+=judgeTable(rec.judge);
+    if(rec.metrics&&rec.metrics.rows&&c.rows_header)h+=rowsTable(c.rows_header,rec.metrics.rows);
+    h+=kvTable(Object.fromEntries(Object.entries(rec.metrics||{}).filter(([k])=>k!=='rows')));
+    h+=`<div class="muted">上次执行: ${esc(rec.ts)}${rec.log?` · <a href="/download?p=${encodeURIComponent(rec.log)}">原始日志</a>`:''}</div>`;
+  }
+  h+=`</div><pre id="out-${c.id}" class="out" style="display:none"></pre></article>`;
+  return h;
+}
+function renderChecks(){
+  const root=document.getElementById('checks');root.innerHTML='';
+  for(const cat of STATE.cats){
+    const list=STATE.checks.filter(c=>c.cat===cat);
+    if(!list.length)continue;
+    const sec=document.createElement('section');
+    sec.innerHTML=`<h2>${esc(cat)}</h2>`+list.map(cardHtml).join('');
+    root.appendChild(sec);
+  }
+}
+function renderManual(){
+  const m=STATE.results.manual||{};
+  const map={appearance_ok:'m-appearance_ok',course_image_ok:'m-course_image_ok',
+    accounts_ok:'m-accounts_ok',sn_registered:'m-sn_registered',
+    warranty_archived:'m-warranty_archived'};
+  for(const[k,id]of Object.entries(map))$(id).checked=!!m[k];
+  $('m-contract_no').value=m.contract_no||'';$('m-factory_report_no').value=m.factory_report_no||'';
+  $('m-acceptor').value=m.acceptor||'';$('m-notes').value=m.notes||'';
+}
+async function saveManual(){
+  const body={appearance_ok:$('m-appearance_ok').checked,course_image_ok:$('m-course_image_ok').checked,
+    accounts_ok:$('m-accounts_ok').checked,sn_registered:$('m-sn_registered').checked,
+    warranty_archived:$('m-warranty_archived').checked,contract_no:$('m-contract_no').value,
+    factory_report_no:$('m-factory_report_no').value,acceptor:$('m-acceptor').value,notes:$('m-notes').value};
+  const r=await api('/api/manual',body);
+  r.ok?toast('人工确认已保存'):toast('保存失败');
+}
+
+/* ---------- 执行与轮询 ---------- */
+function card(check){return STATE.checks.find(c=>c.id===check);}
+async function runCheck(check){
+  const params={};
+  if(check==='conc'){
+    params.url=document.getElementById('conc-url').value.trim();
+    params.users=document.getElementById('conc-users').value;
+    params.duration=document.getElementById('conc-duration').value;
+    params.body=document.getElementById('conc-body').value.trim();
+    params.allow_private=document.getElementById('conc-private').checked;
+  }
+  const r=await api('/api/run',{check,params});
+  if(!r.task){toast(r.error||'启动失败');return;}
+  RUNNING[check]=r.task;
+  const b=document.getElementById('btn-'+check);if(b){b.disabled=true;b.textContent='执行中…';}
+  const chip=document.getElementById('chip-'+check);if(chip){chip.className='chip run';chip.textContent='运行中';}
+  const out=document.getElementById('out-'+check);if(out)out.style.display='block';
+}
+function scheduleBurnAuto(){
+  const box=document.getElementById('auto-burn');
+  if(box&&box.checked)setTimeout(()=>{if(box.checked)runCheck('burn_status');},30000);
+}
+setInterval(async()=>{
+  const ids=Object.keys(RUNNING);
+  if(!ids.length)return;
+  for(const check of ids){
+    try{
+      const t=await api('/api/task/'+RUNNING[check]);
+      const out=document.getElementById('out-'+check);
+      if(out){out.textContent=t.output.length>OUT_MAX?'…'+t.output.slice(-OUT_MAX):t.output;out.scrollTop=out.scrollHeight;}
+      if(t.status!=='running'){
+        delete RUNNING[check];
+        if(check==='burn_status')scheduleBurnAuto();
+        STATE=await api('/api/state');renderChecks();renderManual();
+      }
+    }catch(e){delete RUNNING[check];}
+  }
+},1500);
+
+/* ---------- 报告 ---------- */
+async function genReport(){
+  const r=await api('/api/report',{});
+  const area=document.getElementById('report-area');
+  if(!r.file){area.innerHTML='<span class="fail">生成失败: '+esc(r.error)+'</span>';return;}
+  area.innerHTML=`<div class="rowline"><a href="/download?p=${encodeURIComponent(r.file)}">⬇ 下载 ${esc(r.file)}</a></div>
+    <details open><summary>报告预览（Markdown）</summary><pre>${esc(r.markdown)}</pre></details>`;
+  toast('验收报告已生成');
+}
+
+/* ---------- 启动 ---------- */
+async function refreshState(){STATE=await api('/api/state');}
+function renderAll(){fillConn();renderSpec();renderChecks();renderManual();}
+(async function init(){await refreshState();renderAll();})();
+</script>
+</body>
+</html>
