@@ -1,7 +1,7 @@
 <template>
   <div>
-    <div class="page-title">总览</div>
-    <div class="page-desc">安装人员要求与设备验收事宜全景：验收进度、压测执行、人岗匹配覆盖。</div>
+    <div class="page-title">{{ t('dash.title') }}</div>
+    <div class="page-desc">{{ t('dash.desc') }}</div>
 
     <el-row :gutter="14" style="margin-bottom: 16px">
       <el-col :span="4" v-for="s in stats" :key="s.label">
@@ -15,13 +15,13 @@
     <el-row :gutter="14">
       <el-col :span="8">
         <div class="card-block">
-          <div class="block-title">验收单状态分布</div>
+          <div class="block-title">{{ t('dash.statusPie') }}</div>
           <EChart :option="statusPieOption" height="280px" />
         </div>
       </el-col>
       <el-col :span="16">
         <div class="card-block">
-          <div class="block-title">各节点类别验收进度（已生成验收单 / 设备数量）</div>
+          <div class="block-title">{{ t('dash.nodeBar') }}</div>
           <EChart :option="nodeBarOption" height="280px" />
         </div>
       </el-col>
@@ -30,22 +30,24 @@
     <el-row :gutter="14">
       <el-col :span="16">
         <div class="card-block">
-          <div class="block-title">最近验收动态</div>
+          <div class="block-title">{{ t('dash.recent') }}</div>
           <el-table :data="ov.recentOrders || []" size="small" border>
-            <el-table-column prop="id" label="验收单" width="100" />
-            <el-table-column prop="deviceLabel" label="设备" min-width="190" show-overflow-tooltip />
-            <el-table-column label="状态" width="90">
+            <el-table-column prop="id" :label="t('dash.col.order')" width="100" />
+            <el-table-column :label="t('dash.col.device')" min-width="190" show-overflow-tooltip>
+              <template #default="{ row }">{{ localizeDeviceLabel(row.deviceLabel, categories) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('common.status')" width="110">
               <template #default="{ row }">
-                <el-tag size="small" :type="orderTag(row.status)" effect="dark">{{ row.status }}</el-tag>
+                <el-tag size="small" :type="orderTag(row.status)" effect="dark">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="进度" width="200">
+            <el-table-column :label="t('dash.col.progress')" width="200">
               <template #default="{ row }">
                 <el-progress :percentage="pct(row)" :stroke-width="12"
                              :status="row.status === '整改中' ? 'exception' : row.status === '已通过' ? 'success' : undefined" />
               </template>
             </el-table-column>
-            <el-table-column label="更新时间" width="160">
+            <el-table-column :label="t('dash.col.updated')" width="160">
               <template #default="{ row }">{{ fmtTime(row.updatedAt) }}</template>
             </el-table-column>
           </el-table>
@@ -53,7 +55,7 @@
       </el-col>
       <el-col :span="8">
         <div class="card-block">
-          <div class="block-title">安装技能覆盖（具备人数）</div>
+          <div class="block-title">{{ t('dash.skillCover') }}</div>
           <EChart :option="skillOption" height="300px" />
         </div>
       </el-col>
@@ -64,20 +66,21 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { get, fmtTime } from '../api'
+import { t, statusLabel, skillName, catNameOf } from '../i18n'
 import EChart from '../components/EChart.vue'
 
 const ov = ref({})
+const categories = ref([])
 
 const stats = computed(() => [
-  { label: '验收单总数', value: ov.value.orders?.total ?? 0, color: '#1f7cff' },
-  { label: '已通过', value: ov.value.orders?.byStatus?.['已通过'] ?? 0, color: '#67c23a' },
-  { label: '整改中', value: ov.value.orders?.byStatus?.['整改中'] ?? 0, color: '#f56c6c' },
-  { label: '安装人员', value: ov.value.installers?.total ?? 0, color: '#e6a23c' },
-  { label: '进行中部署', value: ov.value.tasks?.running ?? 0, color: '#909399' },
-  { label: '压测记录', value: (ov.value.stress?.httpTotal ?? 0) + (ov.value.stress?.burnTotal ?? 0), color: '#9254de' },
+  { label: t('dash.orders'), value: ov.value.orders?.total ?? 0, color: '#1f7cff' },
+  { label: t('dash.passed'), value: ov.value.orders?.byStatus?.['已通过'] ?? 0, color: '#67c23a' },
+  { label: t('dash.rework'), value: ov.value.orders?.byStatus?.['整改中'] ?? 0, color: '#f56c6c' },
+  { label: t('dash.installers'), value: ov.value.installers?.total ?? 0, color: '#e6a23c' },
+  { label: t('dash.deploying'), value: ov.value.tasks?.running ?? 0, color: '#909399' },
+  { label: t('dash.records'), value: (ov.value.stress?.httpTotal ?? 0) + (ov.value.stress?.burnTotal ?? 0), color: '#9254de' },
 ])
 
-const orderStatusNames = ['待验收', '进行中', '已通过', '整改中']
 const statusColors = { 待验收: '#909399', 进行中: '#e6a23c', 已通过: '#67c23a', 整改中: '#f56c6c' }
 
 const statusPieOption = computed(() => {
@@ -88,23 +91,33 @@ const statusPieOption = computed(() => {
     series: [{
       type: 'pie', radius: ['42%', '68%'], center: ['50%', '45%'],
       label: { formatter: '{b}: {c}' },
-      data: orderStatusNames.filter((s) => by[s]).map((s) => ({ name: s, value: by[s], itemStyle: { color: statusColors[s] } })),
+      data: Object.keys(by)
+        .filter((s) => by[s])
+        .map((s) => ({ name: statusLabel(s), value: by[s], itemStyle: { color: statusColors[s] } })),
     }],
   }
 })
 
 const nodeBarOption = computed(() => {
   const np = ov.value.nodeProgress || []
+  const catByName = (name) => categories.value.find((c) => c.name === name)
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['设备数量', '已生成验收单', '已通过'] },
-    grid: { left: 45, right: 20, top: 40, bottom: 70 },
-    xAxis: { type: 'category', data: np.map((n) => n.name), axisLabel: { interval: 0, rotate: 32, fontSize: 10 } },
+    legend: { data: [t('dash.legend.qty'), t('dash.legend.created'), t('dash.legend.passed')] },
+    grid: { left: 45, right: 20, top: 40, bottom: 80 },
+    xAxis: {
+      type: 'category',
+      data: np.map((n) => {
+        const c = catByName(n.name)
+        return c ? catNameOf(c) : n.name
+      }),
+      axisLabel: { interval: 0, rotate: 32, fontSize: 10 },
+    },
     yAxis: { type: 'value', minInterval: 1 },
     series: [
-      { name: '设备数量', type: 'bar', barMaxWidth: 22, itemStyle: { color: '#c6d3e8' }, data: np.map((n) => n.quantity) },
-      { name: '已生成验收单', type: 'bar', barMaxWidth: 22, itemStyle: { color: '#79bbff' }, data: np.map((n) => n.accepted) },
-      { name: '已通过', type: 'bar', barMaxWidth: 22, itemStyle: { color: '#67c23a' }, data: np.map((n) => n.passed) },
+      { name: t('dash.legend.qty'), type: 'bar', barMaxWidth: 22, itemStyle: { color: '#c6d3e8' }, data: np.map((n) => n.quantity) },
+      { name: t('dash.legend.created'), type: 'bar', barMaxWidth: 22, itemStyle: { color: '#79bbff' }, data: np.map((n) => n.accepted) },
+      { name: t('dash.legend.passed'), type: 'bar', barMaxWidth: 22, itemStyle: { color: '#67c23a' }, data: np.map((n) => n.passed) },
     ],
   }
 })
@@ -114,8 +127,8 @@ const skillOption = computed(() => {
   const entries = Object.entries(cover)
   return {
     tooltip: { trigger: 'axis' },
-    grid: { left: 40, right: 20, top: 16, bottom: 60 },
-    xAxis: { type: 'category', data: entries.map(([k]) => k), axisLabel: { interval: 0, rotate: 40, fontSize: 10 } },
+    grid: { left: 40, right: 20, top: 16, bottom: 80 },
+    xAxis: { type: 'category', data: entries.map(([k]) => skillName(k)), axisLabel: { interval: 0, rotate: 40, fontSize: 10 } },
     yAxis: { type: 'value', minInterval: 1 },
     series: [{ type: 'bar', barMaxWidth: 18, data: entries.map(([, v]) => v), itemStyle: { color: '#e6a23c' } }],
   }
@@ -130,7 +143,9 @@ function pct(o) {
 }
 
 onMounted(async () => {
-  ov.value = await get('/overview')
+  const [o, cs] = await Promise.all([get('/overview'), get('/categories')])
+  ov.value = o
+  categories.value = cs || []
 })
 </script>
 

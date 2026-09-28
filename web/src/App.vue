@@ -1,33 +1,53 @@
 <template>
-  <el-container class="layout">
-    <el-aside width="220px" class="aside">
-      <div class="brand">
-        <div class="brand-title">部署管理压测平台</div>
-        <div class="brand-sub">安装人员要求 · 设备验收事宜</div>
-      </div>
-      <el-menu :default-active="active" router background-color="#0e1726" text-color="#aeb9cc"
-               active-text-color="#ffffff" class="menu">
-        <el-menu-item index="/"><el-icon><Odometer /></el-icon>总览</el-menu-item>
-        <el-menu-item index="/acceptance"><el-icon><CircleCheck /></el-icon>设备验收</el-menu-item>
-        <el-menu-item index="/installers"><el-icon><User /></el-icon>安装人员</el-menu-item>
-        <el-menu-item index="/deployment"><el-icon><Box /></el-icon>部署管理</el-menu-item>
-        <el-menu-item index="/stress/http"><el-icon><DataLine /></el-icon>并发压测</el-menu-item>
-        <el-menu-item index="/stress/burnin"><el-icon><Monitor /></el-icon>满载烤机</el-menu-item>
-        <el-menu-item index="/spec"><el-icon><Document /></el-icon>验收规范</el-menu-item>
-      </el-menu>
-    </el-aside>
-    <el-main class="main">
-      <router-view />
-    </el-main>
-  </el-container>
+  <el-config-provider :locale="epLocale">
+    <el-container class="layout">
+      <el-aside width="220px" class="aside">
+        <div class="brand">
+          <div class="brand-title">{{ t('app.title') }}</div>
+          <div class="brand-sub">{{ t('app.sub') }}</div>
+        </div>
+        <el-menu :default-active="active" router background-color="#0e1726" text-color="#aeb9cc"
+                 active-text-color="#ffffff" class="menu">
+          <el-menu-item index="/"><el-icon><Odometer /></el-icon>{{ t('menu.dashboard') }}</el-menu-item>
+          <el-menu-item index="/acceptance"><el-icon><CircleCheck /></el-icon>{{ t('menu.acceptance') }}</el-menu-item>
+          <el-menu-item index="/installers"><el-icon><User /></el-icon>{{ t('menu.installers') }}</el-menu-item>
+          <el-menu-item index="/deployment"><el-icon><Box /></el-icon>{{ t('menu.deployment') }}</el-menu-item>
+          <el-menu-item index="/stress/http"><el-icon><DataLine /></el-icon>{{ t('menu.stressHttp') }}</el-menu-item>
+          <el-menu-item index="/stress/burnin"><el-icon><Monitor /></el-icon>{{ t('menu.stressBurnin') }}</el-menu-item>
+          <el-menu-item index="/spec"><el-icon><Document /></el-icon>{{ t('menu.spec') }}</el-menu-item>
+        </el-menu>
+        <div class="lang-switch">
+          <el-radio-group :model-value="locale" size="small" @update:model-value="switchLang">
+            <el-radio-button value="zh">中文</el-radio-button>
+            <el-radio-button value="en">EN</el-radio-button>
+          </el-radio-group>
+        </div>
+      </el-aside>
+      <el-main class="main">
+        <router-view />
+      </el-main>
+    </el-container>
+  </el-config-provider>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { ElConfigProvider } from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import en from 'element-plus/es/locale/lang/en'
+import { locale, setLocale, t } from './i18n'
 
 const route = useRoute()
 const active = computed(() => route.path)
+const epLocale = computed(() => (locale.value === 'en' ? en : zhCn))
+
+function switchLang(l) {
+  setLocale(l)
+  document.title = l === 'en'
+    ? 'Deployment & Stress-test Platform · Installer Requirements & Device Acceptance'
+    : '部署管理压测平台 · 安装人员要求与设备验收'
+}
 </script>
 
 <style>
@@ -42,6 +62,7 @@ body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background: #f0f2
 .brand-sub { color: #7a8aa5; font-size: 12px; margin-top: 6px; }
 .menu { border-right: none; flex: 1; }
 .menu .el-menu-item.is-active { background: #1f7cff !important; }
+.lang-switch { padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 .main { padding: 16px 20px; overflow-y: auto; }
 
 .page-title { font-size: 18px; font-weight: 600; color: #1f2d3d; margin-bottom: 4px; }

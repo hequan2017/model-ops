@@ -29,9 +29,5 @@ export function fmtTime(s) {
   return s.replace('T', ' ').replace(/([+-]\d{2}:\d{2}|Z)$/, '').slice(0, 19)
 }
 
-export function fmtDur(sec) {
-  if (sec == null) return '-'
-  if (sec < 60) return `${sec}秒`
-  if (sec < 3600) return `${Math.floor(sec / 60)}分${sec % 60}秒`
-  return `${Math.floor(sec / 3600)}时${Math.floor((sec % 3600) / 60)}分`
-}
+// 时长格式化委托给 i18n（随界面语言切换）
+export { fmtDur } from './i18n'

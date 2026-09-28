@@ -1,54 +1,50 @@
 <template>
   <div>
-    <div class="page-title">满载烤机监控</div>
-    <div class="page-desc">
-      对应验收条目「③ 72h满载烤机：运行GPU压测监测温度/功耗/稳定性，ECC事件日志确认0错误」。
-      判定标准与真实流程一致：满载时长内 ECC 错误累计为 0 且最高温度不超限 → 合格。
-    </div>
+    <div class="page-title">{{ t('burn.title') }}</div>
+    <div class="page-desc">{{ t('burn.desc') }}</div>
 
     <el-alert type="warning" :closable="false" style="margin-bottom: 16px"
-              title="演示模式说明"
-              description="平台宿主机无真实 GPU，遥测数据为模拟采集（温度爬升/按卡功耗/利用率/ECC计数）。接入真实环境时，将采样源替换为 DCGM-Exporter / nvidia-smi 即可，判定逻辑无需改动。" />
+              :title="t('burn.demoTitle')" :description="t('burn.demoDesc')" />
 
     <div class="card-block">
-      <div class="block-title">发起烤机任务</div>
-      <el-form :inline="true" label-width="110px">
-        <el-form-item label="任务名称">
-          <el-input v-model="form.name" style="width: 240px" placeholder="如：科研微调节点 72h满载烤机" />
+      <div class="block-title">{{ t('burn.new') }}</div>
+      <el-form :inline="true" label-width="140px">
+        <el-form-item :label="t('common.name')">
+          <el-input v-model="form.name" style="width: 240px" :placeholder="t('burn.namePh')" />
         </el-form-item>
-        <el-form-item label="设备">
-          <el-input v-model="form.deviceLabel" style="width: 220px" placeholder="设备标签" />
+        <el-form-item :label="t('burn.device')">
+          <el-input v-model="form.deviceLabel" style="width: 220px" :placeholder="t('burn.devicePh')" />
         </el-form-item>
-        <el-form-item label="GPU数量">
+        <el-form-item :label="t('burn.gpus')">
           <el-input-number v-model="form.gpus" :min="1" :max="16" />
         </el-form-item>
-        <el-form-item label="单卡功耗(W)">
+        <el-form-item :label="t('burn.watt')">
           <el-input-number v-model="form.wattPerGpu" :min="50" :max="800" :step="50" />
         </el-form-item>
-        <el-form-item label="时长">
+        <el-form-item :label="t('burn.duration')">
           <el-input-number v-model="form.durationSec" :min="5" :max="259200" :step="60" />
           <el-button size="small" style="margin-left: 8px" @click="form.durationSec = 259200">72h</el-button>
-          <el-button size="small" @click="form.durationSec = 120">演示2分钟</el-button>
+          <el-button size="small" @click="form.durationSec = 120">{{ t('burn.demo2min') }}</el-button>
         </el-form-item>
-        <el-form-item label="温度限值(°C)">
+        <el-form-item :label="t('burn.maxTemp')">
           <el-input-number v-model="form.maxTempC" :min="60" :max="95" />
         </el-form-item>
-        <el-form-item label="关联验收单">
-          <el-select v-model="form.acceptanceId" clearable style="width: 280px" placeholder="可选：完成后回填验收条目">
-            <el-option v-for="o in orders" :key="o.id" :label="`${o.id} · ${o.deviceLabel}`" :value="o.id" />
+        <el-form-item :label="t('http.linkOrder')">
+          <el-select v-model="form.acceptanceId" clearable style="width: 280px" :placeholder="t('http.linkPh')">
+            <el-option v-for="o in orders" :key="o.id" :label="`${o.id} · ${localizeDeviceLabel(o.deviceLabel, categories)}`" :value="o.id" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.acceptanceId" label="验收条目">
+        <el-form-item v-if="form.acceptanceId" :label="t('http.item')">
           <el-select v-model="form.itemKey" style="width: 280px">
-            <el-option v-for="it in linkableItems" :key="it.key" :label="it.title" :value="it.key" />
+            <el-option v-for="it in linkableItems" :key="it.key" :label="itemTitleFor(it)" :value="it.key" />
           </el-select>
         </el-form-item>
-        <el-form-item label="故障注入">
-          <el-switch v-model="form.injectFault" active-text="演示注入ECC错误" />
+        <el-form-item :label="t('burn.inject')">
+          <el-switch v-model="form.injectFault" :active-text="t('burn.injectLabel')" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="runningTask !== null" @click="start">
-            <el-icon><VideoPlay /></el-icon>&nbsp;开始烤机
+            <el-icon><VideoPlay /></el-icon>&nbsp;{{ t('burn.start') }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -57,19 +53,19 @@
     <!-- 实时监控 -->
     <div v-if="live" class="card-block">
       <div class="block-title">
-        实时监控 · {{ live.id }}（{{ live.deviceLabel }}）
+        {{ t('burn.live') }} · {{ live.id }}（{{ localizeDeviceLabel(live.deviceLabel, categories) }}）
         <el-tag v-if="live.status === 'running'" style="margin-left: 8px" type="warning" effect="dark">
-          运行中 {{ elapsed }}s / {{ live.durationSec }}s
+          {{ t('common.running') }} {{ elapsed }}s / {{ live.durationSec }}s
         </el-tag>
         <el-tag v-else style="margin-left: 8px" :type="live.result?.pass ? 'success' : 'danger'" effect="dark">
-          {{ live.result?.pass ? '判定合格' : '判定不合格' }}
+          {{ live.result?.pass ? t('burn.verdictPass') : t('burn.verdictFail') }}
         </el-tag>
       </div>
       <el-row :gutter="12" style="margin-bottom: 12px">
-        <el-col :span="6"><div class="stat"><div class="stat-v">{{ curMaxTemp }}°C</div><div class="stat-l">当前最高温度（限值 {{ live.maxTempC }}°C）</div></div></el-col>
-        <el-col :span="6"><div class="stat"><div class="stat-v">{{ curPower }}W</div><div class="stat-l">整机当前功耗（{{ live.gpus }} 卡）</div></div></el-col>
-        <el-col :span="6"><div class="stat"><div class="stat-v" :style="{ color: eccColor }">{{ curEcc }}</div><div class="stat-l">ECC 错误累计（须为 0）</div></div></el-col>
-        <el-col :span="6"><div class="stat"><div class="stat-v">{{ samples.length }}</div><div class="stat-l">已采样点数</div></div></el-col>
+        <el-col :span="6"><div class="stat"><div class="stat-v">{{ curMaxTemp }}°C</div><div class="stat-l">{{ t('burn.curMaxTemp', { v: live.maxTempC }) }}</div></div></el-col>
+        <el-col :span="6"><div class="stat"><div class="stat-v">{{ curPower }}W</div><div class="stat-l">{{ t('burn.curPower', { n: live.gpus }) }}</div></div></el-col>
+        <el-col :span="6"><div class="stat"><div class="stat-v" :style="{ color: eccColor }">{{ curEcc }}</div><div class="stat-l">{{ t('burn.ecc') }}</div></div></el-col>
+        <el-col :span="6"><div class="stat"><div class="stat-v">{{ samples.length }}</div><div class="stat-l">{{ t('burn.samples') }}</div></div></el-col>
       </el-row>
       <EChart :option="tempOption" height="300px" />
       <EChart :option="powerOption" height="240px" style="margin-top: 8px" />
@@ -77,48 +73,50 @@
 
     <!-- 历史 -->
     <div class="card-block">
-      <div class="block-title">烤机记录</div>
+      <div class="block-title">{{ t('burn.history') }}</div>
       <el-table :data="history" border size="small">
-        <el-table-column prop="id" label="编号" width="90" />
-        <el-table-column prop="name" label="任务" min-width="190" show-overflow-tooltip />
-        <el-table-column prop="deviceLabel" label="设备" min-width="180" show-overflow-tooltip />
-        <el-table-column label="GPU" width="60" align="center">
+        <el-table-column prop="id" :label="t('common.id')" width="90" />
+        <el-table-column prop="name" :label="t('common.task')" min-width="190" show-overflow-tooltip />
+        <el-table-column :label="t('burn.col.device')" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ localizeDeviceLabel(row.deviceLabel, categories) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('burn.gpus')" width="70" align="center">
           <template #default="{ row }">{{ row.gpus }}</template>
         </el-table-column>
-        <el-table-column label="时长" width="100" align="center">
+        <el-table-column :label="t('burn.col.duration')" width="110" align="center">
           <template #default="{ row }">{{ fmtDur(row.durationSec) }}</template>
         </el-table-column>
-        <el-table-column label="最高温度" width="95" align="center">
+        <el-table-column :label="t('burn.col.maxTemp')" width="100" align="center">
           <template #default="{ row }">{{ row.result ? row.result.maxTempC + '°C' : '-' }}</template>
         </el-table-column>
         <el-table-column label="ECC" width="70" align="center">
           <template #default="{ row }">{{ row.result?.eccTotal ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="判定" width="95" align="center">
+        <el-table-column :label="t('common.verdict')" width="100" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.status === 'running'" type="warning">运行中</el-tag>
+            <el-tag v-if="row.status === 'running'" type="warning">{{ t('common.running') }}</el-tag>
             <el-tag v-else :type="row.result?.pass ? 'success' : 'danger'" effect="dark">
-              {{ row.result?.pass ? '合格' : '不合格' }}
+              {{ row.result?.pass ? t('common.pass') : t('common.fail') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="开始时间" width="160">
+        <el-table-column :label="t('common.time')" width="160">
           <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column :label="t('common.actions')" width="140" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="showDetail(row)">详情</el-button>
-            <el-button v-if="row.acceptanceId && row.result" link type="success" @click="backfill(row)">回填验收</el-button>
+            <el-button link type="primary" @click="showDetail(row)">{{ t('common.detail') }}</el-button>
+            <el-button v-if="row.acceptanceId && row.result" link type="success" @click="backfill(row)">{{ t('http.backfill') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
 
     <!-- 详情 -->
-    <el-dialog v-model="detailVisible" :title="'烤机详情 · ' + (detail?.id || '')" width="860px">
+    <el-dialog v-model="detailVisible" :title="t('burn.detailTitle') + ' · ' + (detail?.id || '')" width="860px">
       <template v-if="detail">
         <el-alert :type="detail.result?.pass ? 'success' : 'error'" :closable="false" style="margin-bottom: 12px"
-                  :title="detail.result?.summary || '任务进行中'" />
+                  :title="detail.result?.summary || t('common.running')" />
         <EChart :option="detailTempOption" height="300px" />
         <EChart :option="detailPowerOption" height="220px" style="margin-top: 8px" />
       </template>
@@ -132,6 +130,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { get, post } from '../api'
 import { fmtTime, fmtDur } from '../api'
+import { t, itemTitle, localizeDeviceLabel } from '../i18n'
 import EChart from '../components/EChart.vue'
 
 const route = useRoute()
@@ -141,6 +140,7 @@ const form = reactive({
 })
 const history = ref([])
 const orders = ref([])
+const categories = ref([])
 const live = ref(null)
 const runningTask = ref(null)
 const detailVisible = ref(false)
@@ -159,6 +159,8 @@ const curPower = computed(() => {
 })
 const curEcc = computed(() => samples.value.length ? samples.value[samples.value.length - 1].eccErrs : 0)
 const eccColor = computed(() => (curEcc.value > 0 ? '#f56c6c' : '#1f2d3d'))
+
+const itemTitleFor = (it) => itemTitle('gpu', it.key, it.title)
 
 const linkableItems = computed(() => {
   const o = orders.value.find((x) => x.id === form.acceptanceId)
@@ -179,7 +181,7 @@ function tempSeries(list) {
     tooltip: { trigger: 'axis' },
     legend: { data: series.map((s) => s.name) },
     grid: { left: 50, right: 30, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: list.map((s) => fmtDur(s.t)), name: '时间' },
+    xAxis: { type: 'category', data: list.map((s) => fmtDur(s.t)), name: t('http.timeAxis') },
     yAxis: { type: 'value', name: '°C', max: 95, min: 20 },
     series,
   }
@@ -188,12 +190,12 @@ function tempSeries(list) {
 function powerSeries(list) {
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['整机功耗(W)'] },
+    legend: { data: [t('burn.totalPower')] },
     grid: { left: 60, right: 30, top: 36, bottom: 30 },
     xAxis: { type: 'category', data: list.map((s) => fmtDur(s.t)) },
     yAxis: { type: 'value', name: 'W' },
     series: [{
-      name: '整机功耗(W)', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.15 },
+      name: t('burn.totalPower'), type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.15 },
       data: list.map((s) => Math.round(s.powers.reduce((a, b) => a + b, 0))),
     }],
   }
@@ -209,30 +211,29 @@ async function loadHistory() {
 }
 
 async function start() {
-  if (form.durationSec >= 259200 && !form.name.includes('72h')) form.name = form.name || '满载烤机'
-  const t = await post('/stress/burnin', { ...form })
-  runningTask.value = t
-  live.value = t
-  ElMessage.success(`烤机任务已启动：${t.id}（${fmtDur(t.durationSec)}，采样间隔 ${t.intervalSec}s）`)
-  startPolling(t.id)
+  const tk = await post('/stress/burnin', { ...form })
+  runningTask.value = tk
+  live.value = tk
+  ElMessage.success(`${t('burn.msgStarted')}${tk.id}（${fmtDur(tk.durationSec)}）`)
+  startPolling(tk.id)
   loadHistory()
 }
 
 function startPolling(id) {
   stopPolling()
   timer = setInterval(async () => {
-    const t = await get(`/stress/burnin/${id}/live`)
-    live.value = t
-    if (t.status !== 'running') {
+    const tk = await get(`/stress/burnin/${id}/live`)
+    live.value = tk
+    if (tk.status !== 'running') {
       stopPolling()
       runningTask.value = null
       loadHistory()
       ElMessage({
-        type: t.result?.pass ? 'success' : 'error',
-        message: t.result?.summary || '烤机结束',
+        type: tk.result?.pass ? 'success' : 'error',
+        message: tk.result?.summary || t('common.running'),
         duration: 8000,
       })
-      if (t.acceptanceId && t.itemKey) backfillSilent(t)
+      if (tk.acceptanceId && tk.itemKey) backfillSilent(tk)
     }
   }, Math.min(5000, (form.intervalSec || 5) * 1000))
 }
@@ -242,15 +243,15 @@ function stopPolling() {
   timer = null
 }
 
-async function backfill(t) {
-  const o = await post(`/orders/${t.acceptanceId}/items/${t.itemKey}/apply-stress`, { stressId: t.id, type: 'burnin' })
-  ElMessage.success(`已回填验收单 ${o.id}，条目判定：${o.status}`)
+async function backfill(tk) {
+  const o = await post(`/orders/${tk.acceptanceId}/items/${tk.itemKey}/apply-stress`, { stressId: tk.id, type: 'burnin' })
+  ElMessage.success(`${t('burn.msgBackfilled')}${o.id}`)
 }
 
-async function backfillSilent(t) {
+async function backfillSilent(tk) {
   try {
-    const o = await post(`/orders/${t.acceptanceId}/items/${t.itemKey}/apply-stress`, { stressId: t.id, type: 'burnin' })
-    ElMessage.info(`验收单 ${o.id} 条目已按烤机结果自动判定`)
+    await post(`/orders/${tk.acceptanceId}/items/${tk.itemKey}/apply-stress`, { stressId: tk.id, type: 'burnin' })
+    ElMessage.info(t('burn.msgAutoBackfill'))
   } catch { /* 未关联时忽略 */ }
 }
 
@@ -264,9 +265,11 @@ onMounted(async () => {
     form.acceptanceId = route.query.acceptanceId
     form.itemKey = route.query.itemKey || ''
     form.deviceLabel = route.query.device || ''
-    form.name = `${route.query.device || '设备'} 满载烤机`
+    form.name = `${route.query.device || ''} burn-in`
   }
-  orders.value = (await get('/orders')) || []
+  const [os, cs] = await Promise.all([get('/orders'), get('/categories')])
+  orders.value = os || []
+  categories.value = cs || []
   await loadHistory()
   const run = history.value.find((h) => h.status === 'running')
   if (run) {

@@ -1,78 +1,84 @@
 <template>
   <div>
-    <div class="page-title">验收规范 · 安装人员要求</div>
-    <div class="page-desc">
-      各节点类别的安装人员要求原文与设备验收事宜条款，是验收单条目模板与人岗匹配的唯一依据。
-    </div>
+    <div class="page-title">{{ t('spec.title') }}</div>
+    <div class="page-desc">{{ t('spec.desc') }}</div>
 
     <!-- GPU 类 -->
-    <div class="card-block">
+    <div class="card-block" v-if="gpuCat">
       <div class="block-title">
-        <el-icon color="#1f7cff"><Cpu /></el-icon>&nbsp;GPU 类节点（通用规范）
+        <el-icon color="#1f7cff"><Cpu /></el-icon>&nbsp;{{ t('spec.gpuCommon') }}
       </div>
       <el-alert type="info" :closable="false" style="margin-bottom: 14px">
-        <template #title><b>安装人员要求</b></template>
-        {{ gpuReq.installerReq }}
+        <template #title><b>{{ t('spec.req') }}</b></template>
+        {{ reqText('gpu') }}
       </el-alert>
 
       <div class="skill-line">
-        <span class="skill-label">要求技能标签：</span>
-        <el-tag v-for="s in gpuReq.requiredSkills" :key="s" size="small" effect="plain" style="margin: 2px 6px 2px 0">{{ s }}</el-tag>
+        <span class="skill-label">{{ t('spec.reqSkills') }}</span>
+        <el-tag v-for="s in gpuCat.requiredSkills" :key="s" size="small" effect="plain" style="margin: 2px 6px 2px 0">{{ skillName(s) }}</el-tag>
       </div>
 
-      <div class="block-title" style="margin-top: 18px">设备验收事宜（验收单条目模板）</div>
-      <el-table :data="gpuReq.items || []" border>
-        <el-table-column label="条目" width="190">
+      <div class="block-title" style="margin-top: 18px">{{ t('spec.tmpl') }}</div>
+      <el-table :data="gpuCat.items || []" border>
+        <el-table-column :label="t('spec.col.item')" width="220">
           <template #default="{ row }">
-            <b>{{ row.title }}</b>
-            <el-tag v-if="row.mandatory" size="small" type="danger" effect="plain" style="margin-left: 6px">强制项</el-tag>
+            <b>{{ itemTitle('gpu', row.key, row.title) }}</b>
+            <el-tag v-if="row.mandatory" size="small" type="danger" effect="plain" style="margin-left: 6px">{{ t('acc.mandatory') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="content" label="验收内容" min-width="440" />
-        <el-table-column label="执行方式" width="110">
+        <el-table-column :label="t('spec.col.content')" min-width="460">
+          <template #default="{ row }">{{ itemContent('gpu', row.key, row.content) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('spec.col.method')" width="120">
           <template #default="{ row }">
-            <el-tag size="small" :type="catTag(row.category)">{{ catName(row.category) }}</el-tag>
+            <el-tag size="small" :type="catTag(row.category)">{{ methodName(row.category) }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
 
-      <div class="block-title" style="margin-top: 18px">适用节点类别</div>
+      <div class="block-title" style="margin-top: 18px">{{ t('spec.applyTo') }}</div>
       <el-table :data="gpuCats" border size="small">
-        <el-table-column prop="code" label="编号" width="70" align="center" />
-        <el-table-column prop="name" label="节点类别" min-width="200" />
-        <el-table-column label="推荐量" width="110" align="center">
-          <template #default="{ row }">{{ row.quantity }} {{ row.unit }}</template>
+        <el-table-column :label="t('spec.col.no')" width="80" align="center">
+          <template #default="{ row }">{{ row.code }}</template>
+        </el-table-column>
+        <el-table-column :label="t('dep.col.cat')" min-width="220">
+          <template #default="{ row }">{{ catNameOf(row) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('spec.col.qty')" width="120" align="center">
+          <template #default="{ row }">{{ row.quantity }} {{ unitName(row.unit) }}</template>
         </el-table-column>
       </el-table>
     </div>
 
     <!-- CPU 类 -->
-    <div class="card-block" v-if="cpuReq">
+    <div class="card-block" v-if="cpuCat">
       <div class="block-title">
-        <el-icon color="#e6a23c"><Cpu /></el-icon>&nbsp;CPU 仿真节点
+        <el-icon color="#e6a23c"><Cpu /></el-icon>&nbsp;{{ t('spec.cpuTitle') }}
       </div>
       <el-alert type="info" :closable="false" style="margin-bottom: 14px">
-        <template #title><b>安装人员要求</b></template>
-        {{ cpuReq.installerReq }}
+        <template #title><b>{{ t('spec.req') }}</b></template>
+        {{ reqText('cpu') }}
       </el-alert>
 
       <div class="skill-line">
-        <span class="skill-label">要求技能标签：</span>
-        <el-tag v-for="s in cpuReq.requiredSkills" :key="s" size="small" type="warning" effect="plain" style="margin: 2px 6px 2px 0">{{ s }}</el-tag>
+        <span class="skill-label">{{ t('spec.reqSkills') }}</span>
+        <el-tag v-for="s in cpuCat.requiredSkills" :key="s" size="small" type="warning" effect="plain" style="margin: 2px 6px 2px 0">{{ skillName(s) }}</el-tag>
       </div>
 
-      <div class="block-title" style="margin-top: 18px">设备验收事宜（验收单条目模板）</div>
-      <el-table :data="cpuReq.items || []" border>
-        <el-table-column label="条目" width="190">
+      <div class="block-title" style="margin-top: 18px">{{ t('spec.tmpl') }}</div>
+      <el-table :data="cpuCat.items || []" border>
+        <el-table-column :label="t('spec.col.item')" width="220">
           <template #default="{ row }">
-            <b>{{ row.title }}</b>
-            <el-tag v-if="row.mandatory" size="small" type="danger" effect="plain" style="margin-left: 6px">强制项</el-tag>
+            <b>{{ itemTitle('cpu', row.key, row.title) }}</b>
+            <el-tag v-if="row.mandatory" size="small" type="danger" effect="plain" style="margin-left: 6px">{{ t('acc.mandatory') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="content" label="验收内容" min-width="440" />
-        <el-table-column label="执行方式" width="110">
+        <el-table-column :label="t('spec.col.content')" min-width="460">
+          <template #default="{ row }">{{ itemContent('cpu', row.key, row.content) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('spec.col.method')" width="120">
           <template #default="{ row }">
-            <el-tag size="small" :type="catTag(row.category)">{{ catName(row.category) }}</el-tag>
+            <el-tag size="small" :type="catTag(row.category)">{{ methodName(row.category) }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -83,17 +89,15 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { get } from '../api'
+import { t, catNameOf, skillName, reqText, itemTitle, itemContent, methodName, unitName } from '../i18n'
 
 const categories = ref([])
-const gpuReq = computed(() => categories.value.find((c) => c.kind === 'gpu') || {})
+const gpuCat = computed(() => categories.value.find((c) => c.kind === 'gpu'))
 const gpuCats = computed(() => categories.value.filter((c) => c.kind === 'gpu'))
-const cpuReq = computed(() => categories.value.find((c) => c.kind === 'cpu'))
+const cpuCat = computed(() => categories.value.find((c) => c.kind === 'cpu'))
 
 function catTag(c) {
   return { manual: '', burnin: 'warning', http: 'warning', performance: 'danger' }[c] || 'info'
-}
-function catName(c) {
-  return { manual: '人工检查', burnin: '满载烤机', http: '并发压测', performance: '性能实测' }[c] || c
 }
 
 onMounted(async () => {

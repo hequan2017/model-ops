@@ -1,17 +1,15 @@
 <template>
   <div>
-    <div class="page-title">安装人员</div>
-    <div class="page-desc">
-      管理安装人员资质与技能标签，并对照各节点类别的「安装人员要求」做人岗匹配；分派部署任务时可参考匹配度。
-    </div>
+    <div class="page-title">{{ t('ins.title') }}</div>
+    <div class="page-desc">{{ t('ins.desc') }}</div>
 
     <!-- 岗位要求原文 -->
     <div class="card-block">
-      <div class="block-title">安装人员要求（岗位规范）</div>
+      <div class="block-title">{{ t('ins.reqTitle') }}</div>
       <div v-for="kind in ['gpu', 'cpu']" :key="kind" style="margin-bottom: 10px">
         <el-alert type="info" :closable="false">
           <template #title>
-            <b>{{ kind === 'gpu' ? 'GPU 类节点（科研微调 / 推理 / 教学 / 智能体 / 实训集群）' : 'CPU 仿真节点' }}</b>
+            <b>{{ kind === 'gpu' ? t('ins.gpuNodes') : t('ins.cpuNode') }}</b>
           </template>
           {{ reqText(kind) }}
         </el-alert>
@@ -21,34 +19,36 @@
     <!-- 人员名册 -->
     <div class="card-block">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
-        <div class="block-title" style="margin: 0">人员名册（{{ installers.length }} 人）</div>
-        <el-button type="primary" @click="openEdit()"><el-icon><Plus /></el-icon>&nbsp;新增人员</el-button>
+        <div class="block-title" style="margin: 0">{{ t('ins.roster', { n: installers.length }) }}</div>
+        <el-button type="primary" @click="openEdit()"><el-icon><Plus /></el-icon>&nbsp;{{ t('ins.add') }}</el-button>
       </div>
       <el-table :data="installers" border>
-        <el-table-column prop="name" label="姓名" width="90" />
-        <el-table-column prop="title" label="岗位" min-width="150" show-overflow-tooltip />
-        <el-table-column label="等级" width="90">
+        <el-table-column prop="name" :label="t('ins.col.name')" width="100" />
+        <el-table-column prop="title" :label="t('ins.col.title')" min-width="150" show-overflow-tooltip />
+        <el-table-column :label="t('ins.col.level')" width="110">
           <template #default="{ row }">
-            <el-tag :type="levelTag(row.level)" effect="dark">{{ row.level }}</el-tag>
+            <el-tag :type="levelTag(row.level)" effect="dark">{{ levelName(row.level) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="phone" label="联系方式" width="140" />
-        <el-table-column label="技能标签" min-width="320">
+        <el-table-column prop="phone" :label="t('ins.col.phone')" width="140" />
+        <el-table-column :label="t('ins.col.skills')" min-width="320">
           <template #default="{ row }">
             <el-tag v-for="s in row.skills" :key="s" size="small" style="margin: 2px 4px 2px 0"
-                    :type="isGpuSkill(s) ? 'primary' : 'warning'" effect="plain">{{ s }}</el-tag>
+                    :type="isGpuSkill(s) ? 'primary' : 'warning'" effect="plain">{{ skillName(s) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="在岗" width="70">
+        <el-table-column :label="t('ins.col.available')" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.available ? 'success' : 'info'" size="small">{{ row.available ? '在岗' : '占用' }}</el-tag>
+            <el-tag :type="row.available ? 'success' : 'info'" size="small">
+              {{ row.available ? t('ins.available') : t('ins.busy') }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="130" fixed="right">
+        <el-table-column :label="t('common.actions')" width="130" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-popconfirm :title="`删除 ${row.name}？`" @confirm="removeInstaller(row)">
-              <template #reference><el-button link type="danger">删除</el-button></template>
+            <el-button link type="primary" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-popconfirm :title="t('ins.deleteConfirm', { n: row.name })" @confirm="removeInstaller(row)">
+              <template #reference><el-button link type="danger">{{ t('common.delete') }}</el-button></template>
             </el-popconfirm>
           </template>
         </el-table-column>
@@ -58,14 +58,16 @@
     <!-- 技能矩阵与人岗匹配 -->
     <div class="card-block">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
-        <div class="block-title" style="margin: 0">技能矩阵 · 人岗匹配</div>
-        <el-select v-model="matchCat" style="width: 260px" @change="onMatchCatChange">
-          <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+        <div class="block-title" style="margin: 0">{{ t('ins.matrix') }}</div>
+        <el-select v-model="matchCat" style="width: 280px">
+          <el-option v-for="c in categories" :key="c.id" :label="catNameOf(c)" :value="c.id" />
         </el-select>
       </div>
 
       <el-table v-if="curCat" :data="curCat.requiredSkills.map((s) => ({ skill: s }))" border size="small">
-        <el-table-column prop="skill" label="要求技能" min-width="180" />
+        <el-table-column :label="t('ins.reqSkill')" min-width="200">
+          <template #default="{ row }">{{ skillName(row.skill) }}</template>
+        </el-table-column>
         <el-table-column v-for="i in installers" :key="i.id" :label="i.name" :width="76" align="center">
           <template #default="{ row }">
             <el-icon v-if="i.skills.includes(row.skill)" color="#67c23a"><CircleCheckFilled /></el-icon>
@@ -75,22 +77,22 @@
       </el-table>
 
       <div v-if="curCat" style="margin-top: 14px">
-        <div class="block-title">对「{{ curCat.name }}」的匹配度</div>
+        <div class="block-title">{{ t('ins.matchFor', { c: catNameOf(curCat) }) }}</div>
         <el-table :data="matchRows" border size="small">
-          <el-table-column prop="name" label="人员" width="100" />
-          <el-table-column label="匹配度" min-width="240">
+          <el-table-column prop="name" :label="t('ins.col.name')" width="110" />
+          <el-table-column :label="t('ins.match')" min-width="240">
             <template #default="{ row }">
               <el-progress :percentage="row.pct" :stroke-width="14"
                            :status="row.pct === 100 ? 'success' : row.pct >= 60 ? undefined : 'exception'" />
             </template>
           </el-table-column>
-          <el-table-column label="缺失技能" min-width="260">
+          <el-table-column :label="t('ins.missing')" min-width="280">
             <template #default="{ row }">
               <template v-if="row.missing.length">
                 <el-tag v-for="m in row.missing" :key="m" size="small" type="danger" effect="plain"
-                        style="margin: 2px 4px 2px 0">{{ m }}</el-tag>
+                        style="margin: 2px 4px 2px 0">{{ skillName(m) }}</el-tag>
               </template>
-              <el-tag v-else size="small" type="success">全部满足</el-tag>
+              <el-tag v-else size="small" type="success">{{ t('ins.allMet') }}</el-tag>
             </template>
           </el-table-column>
         </el-table>
@@ -98,33 +100,33 @@
     </div>
 
     <!-- 编辑人员 -->
-    <el-dialog v-model="editVisible" :title="form.id ? '编辑人员' : '新增人员'" width="560px">
-      <el-form label-width="90px">
-        <el-form-item label="姓名" required><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="岗位"><el-input v-model="form.title" placeholder="如：GPU集群部署专家" /></el-form-item>
-        <el-form-item label="等级" required>
+    <el-dialog v-model="editVisible" :title="form.id ? t('ins.edit') : t('ins.add')" width="580px">
+      <el-form label-width="110px">
+        <el-form-item :label="t('ins.fName')" required><el-input v-model="form.name" /></el-form-item>
+        <el-form-item :label="t('ins.fTitle')"><el-input v-model="form.title" :placeholder="t('ins.fTitlePh')" /></el-form-item>
+        <el-form-item :label="t('ins.fLevel')" required>
           <el-select v-model="form.level" style="width: 160px">
-            <el-option v-for="l in ['专家级', '高级', '中级', '初级']" :key="l" :label="l" :value="l" />
+            <el-option v-for="l in LEVELS" :key="l" :label="levelName(l)" :value="l" />
           </el-select>
         </el-form-item>
-        <el-form-item label="联系方式"><el-input v-model="form.phone" /></el-form-item>
-        <el-form-item label="GPU 技能">
+        <el-form-item :label="t('ins.fPhone')"><el-input v-model="form.phone" /></el-form-item>
+        <el-form-item :label="t('ins.gpuSkills')">
           <el-checkbox-group v-model="form.skills">
-            <el-checkbox v-for="s in skills.gpu" :key="s" :value="s" style="width: 100%">{{ s }}</el-checkbox>
+            <el-checkbox v-for="s in skills.gpu" :key="s" :value="s" style="width: 100%">{{ skillName(s) }}</el-checkbox>
           </el-checkbox-group>
         </el-form-item>
-        <el-form-item label="HPC 技能">
+        <el-form-item :label="t('ins.hpcSkills')">
           <el-checkbox-group v-model="form.skills">
-            <el-checkbox v-for="s in skills.cpu" :key="s" :value="s" style="width: 100%">{{ s }}</el-checkbox>
+            <el-checkbox v-for="s in skills.cpu" :key="s" :value="s" style="width: 100%">{{ skillName(s) }}</el-checkbox>
           </el-checkbox-group>
         </el-form-item>
-        <el-form-item label="在岗">
-          <el-switch v-model="form.available" active-text="在岗" inactive-text="占用" />
+        <el-form-item :label="t('ins.fAvailable')">
+          <el-switch v-model="form.available" :active-text="t('ins.available')" :inactive-text="t('ins.busy')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editVisible = false">取消</el-button>
-        <el-button type="primary" @click="save">保存</el-button>
+        <el-button @click="editVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="save">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -134,6 +136,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { get, post, put, del } from '../api'
+import { t, LEVELS, catNameOf, levelName, skillName, reqText } from '../i18n'
 
 const installers = ref([])
 const categories = ref([])
@@ -161,10 +164,6 @@ const isGpuSkill = (s) => gpuSkillSet.value.has(s)
 function levelTag(l) {
   return { 专家级: 'danger', 高级: 'warning', 中级: 'primary', 初级: 'info' }[l] || 'info'
 }
-function reqText(kind) {
-  const c = categories.value.find((x) => x.kind === kind)
-  return c ? c.installerReq : ''
-}
 
 async function load() {
   const [is, cs, ss] = await Promise.all([get('/installers'), get('/categories'), get('/skills')])
@@ -173,8 +172,6 @@ async function load() {
   skills.value = ss || { gpu: [], cpu: [] }
 }
 
-function onMatchCatChange() { /* 匹配表为响应式计算，无需处理 */ }
-
 function openEdit(row) {
   Object.assign(form, row ? { ...row } : { id: '', name: '', title: '', level: '中级', phone: '', skills: [], available: true })
   editVisible.value = true
@@ -182,19 +179,19 @@ function openEdit(row) {
 
 async function save() {
   if (!form.name.trim()) {
-    ElMessage.warning('姓名不能为空')
+    ElMessage.warning(t('ins.msgNameRequired'))
     return
   }
   if (form.id) await put(`/installers/${form.id}`, { ...form })
   else await post('/installers', { ...form })
   editVisible.value = false
-  ElMessage.success('已保存')
+  ElMessage.success(t('ins.msgSaved'))
   load()
 }
 
 async function removeInstaller(row) {
   await del(`/installers/${row.id}`)
-  ElMessage.success('已删除')
+  ElMessage.success(t('ins.msgDeleted'))
   load()
 }
 
