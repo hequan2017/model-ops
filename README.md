@@ -74,6 +74,10 @@ web/                    Vue 3 前端
                         StressHttp / StressBurnin / Spec
 
 gpu-acceptance/         GPU 验收控制台（独立子项目，本地 Web + SSH 远程执行，见下节）
+
+.spec-workflow/         规格驱动开发（Spec Workflow）文档模板
+├── templates/          默认模板：requirements / design / tasks 与 product / tech / structure steering
+└── user-templates/     同名自定义模板可覆盖默认模板，且随模板版本更新保留
 ```
 
 ## 验收闭环示例
@@ -121,6 +125,13 @@ cd server && go test ./...     # 种子数据、验收状态机、真实压测�
 服务器执行，自动按阈值判定并一键生成验收报告。服务器端零部署；目标服务器地址不内置，运行后在
 界面填写或用环境变量提供。平台侧烤机/压测条目可引用该工具的实测结果作为验收记录佐证。
 详见 [gpu-acceptance/README.md](gpu-acceptance/README.md)。
+
+## 开发工作流（Spec Workflow）
+
+仓库内置 `.spec-workflow/templates/` 规格驱动开发文档模板（requirements / design / tasks，
+以及 product / tech / structure steering），配合 Spec Workflow 工具使用：新功能先在
+`.spec-workflow/` 下沉淀需求与设计文档，再落地代码；在 `user-templates/` 放置同名模板
+即可覆盖默认模板，且不会随模板更新被覆盖。
 
 ## License
 

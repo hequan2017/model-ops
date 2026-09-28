@@ -84,6 +84,10 @@ web/                    Vue 3 frontend
                         StressHttp / StressBurnin / Spec
 
 gpu-acceptance/         GPU acceptance console (standalone sub-project, local web + SSH, see below)
+
+.spec-workflow/         Spec-driven development (Spec Workflow) document templates
+├── templates/          defaults: requirements / design / tasks plus product / tech / structure steering
+└── user-templates/     same-name custom templates override defaults and survive template updates
 ```
 
 ## Acceptance Loop Example
@@ -135,6 +139,14 @@ verification — with automatic threshold verdicts and one-click acceptance repo
 is deployed on the server; no target address is built in (fill it in the UI or provide via
 environment variables). Burn-in/load-test items in the platform can cite the tool's measured
 results as acceptance evidence. See [gpu-acceptance/README.en.md](gpu-acceptance/README.en.md).
+
+## Development Workflow (Spec Workflow)
+
+The repo ships `.spec-workflow/templates/` — spec-driven development document templates
+(requirements / design / tasks, plus product / tech / structure steering) for use with the
+Spec Workflow tooling: new features start as requirement/design documents under
+`.spec-workflow/` before code lands. Drop a same-name template into `user-templates/` to
+override a default; custom templates survive template updates.
 
 ## License
 
